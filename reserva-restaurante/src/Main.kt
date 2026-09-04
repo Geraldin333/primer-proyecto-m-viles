@@ -9,7 +9,7 @@ fun main() {
 
         when (opcion) {
             1 -> println(" 1. --- Módulo de Mesas")
-            2 -> println(" 2. --- Módulo de Clientes")
+            2 -> {println(" 2. --- Módulo de Clientes") UIController.gestionarClientes() }
             3 -> println(" 3. --- Módulo de Reservas")
             4 -> println(" 4. --- Catálogo de Menú")
             5 -> println(" 5. --- Módulo de Pedidos")
