@@ -1,5 +1,6 @@
 fun main() {
     var opcion: Int
+    val reservationSystem = ReservationSystem()
 
     println(" BIENVENIDO AL SISTEMA DE RESERVAS DE RESTAURANTE ")
 
@@ -9,8 +10,8 @@ fun main() {
 
         when (opcion) {
             1 -> println(" 1. --- Módulo de Mesas")
-            2 -> {println(" 2. --- Módulo de Clientes") UIController.gestionarClientes() }
-            3 -> println(" 3. --- Módulo de Reservas")
+            2 -> println(" 2. --- Módulo de Clientes")
+            3 -> reservationSystem.gestionarReservas() // <-- Conexión del módulo de reservas
             4 -> println(" 4. --- Catálogo de Menú")
             5 -> println(" 5. --- Módulo de Pedidos")
             6 -> println(" 6. --- Módulo de Facturación")
