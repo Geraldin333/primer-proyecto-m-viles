@@ -10,14 +10,14 @@ fun main() {
         when (opcion) {
             1 -> println(" 1. --- Módulo de Mesas")
             2 -> {
-                println(" 2. --- Módulo de Clientes") UIController.gestionarClientes()
+                println(" 2. --- Módulo de Clientes")
+                UIController.gestionarClientes()
             }
-
             3 -> println(" 3. --- Módulo de Reservas")
             4 -> {
                 println(" 4. --- Catálogo de Menú")
-            MenuCatalog.mostrarCatalogo()
-        }
+                MenuCatalog.mostrarCatalogo()
+            }
             5 -> println(" 5. --- Módulo de Pedidos")
             6 -> println(" 6. --- Módulo de Facturación")
             0 -> println(" Saliendo del sistema... ¡Gracias por usar la aplicación!")
