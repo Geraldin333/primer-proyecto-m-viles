@@ -1,4 +1,6 @@
 fun main() {
+    val tableManager = TableManager()
+    val orderManager = OrderManager(tableManager)
     var opcion: Int
 
     println(" BIENVENIDO AL SISTEMA DE RESERVAS DE RESTAURANTE ")
@@ -8,7 +10,7 @@ fun main() {
         opcion = UIController.leerEntero("Ingrese la opción deseada (0-6): ")
 
         when (opcion) {
-            1 -> println(" 1. --- Módulo de Mesas")
+            1 -> tableManager.gestionarMesas()
             2 -> {
                 println(" 2. --- Módulo de Clientes")
                 UIController.gestionarClientes()
@@ -18,7 +20,7 @@ fun main() {
                 println(" 4. --- Catálogo de Menú")
                 MenuCatalog.mostrarCatalogo()
             }
-            5 -> println(" 5. --- Módulo de Pedidos")
+            5 -> orderManager.gestionarPedidos()
             6 -> println(" 6. --- Módulo de Facturación")
             0 -> println(" Saliendo del sistema... ¡Gracias por usar la aplicación!")
             else -> println(" Opción no válida. Por favor ingrese un número entre 0 y 6.")

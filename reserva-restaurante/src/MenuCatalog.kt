@@ -1,9 +1,7 @@
-
 enum class Categoria {
     PLATILLO,
     BEBIDA
 }
-
 
 data class MenuItem(
     val id: Int,
@@ -13,14 +11,9 @@ data class MenuItem(
     var disponible: Boolean = true
 )
 
-
 object MenuCatalog {
 
-    // Lista interna de ítems del menú. Es mutable porque el catálogo
-    // puede actualizarse en tiempo de ejecución (agregar ítems, cambiar
-    // precios, marcar algo como agotado, etc.).
     private val items: MutableList<MenuItem> = cargarCatalogoInicial()
-
 
     private fun cargarCatalogoInicial(): MutableList<MenuItem> {
         return mutableListOf(
@@ -35,23 +28,17 @@ object MenuCatalog {
         )
     }
 
-
     fun obtenerTodos(): List<MenuItem> = items.toList()
-
 
     fun obtenerDisponibles(): List<MenuItem> = items.filter { it.disponible }
 
-
     fun buscarPorId(id: Int): MenuItem? = items.find { it.id == id }
-
 
     fun buscarPorNombre(texto: String): List<MenuItem> =
         items.filter { it.nombre.contains(texto, ignoreCase = true) }
 
-
     fun filtrarPorCategoria(categoria: Categoria): List<MenuItem> =
         items.filter { it.categoria == categoria }
-
 
     fun agregarItem(item: MenuItem): Boolean {
         if (buscarPorId(item.id) != null) return false
@@ -59,12 +46,10 @@ object MenuCatalog {
         return true
     }
 
-
     fun eliminarItem(id: Int): Boolean {
         val item = buscarPorId(id) ?: return false
         return items.remove(item)
     }
-
 
     fun actualizarPrecio(id: Int, nuevoPrecio: Double): Boolean {
         val item = buscarPorId(id) ?: return false
@@ -72,13 +57,11 @@ object MenuCatalog {
         return true
     }
 
-
     fun cambiarDisponibilidad(id: Int, disponible: Boolean): Boolean {
         val item = buscarPorId(id) ?: return false
         item.disponible = disponible
         return true
     }
-
 
     fun mostrarCatalogo() {
         println("===== CATÁLOGO DE MENÚ =====")
