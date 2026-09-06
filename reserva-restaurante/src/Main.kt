@@ -1,7 +1,10 @@
 fun main() {
     val tableManager = TableManager()
     val orderManager = OrderManager(tableManager)
+    val reservationSystem = ReservationSystem(tableManager)
+
     var opcion: Int
+
 
     println(" BIENVENIDO AL SISTEMA DE RESERVAS DE RESTAURANTE ")
 
@@ -11,17 +14,11 @@ fun main() {
 
         when (opcion) {
             1 -> tableManager.gestionarMesas()
-            2 -> {
-                println(" 2. --- Módulo de Clientes")
-                UIController.gestionarClientes()
-            }
-            3 -> println(" 3. --- Módulo de Reservas")
-            4 -> {
-                println(" 4. --- Catálogo de Menú")
-                MenuCatalog.mostrarCatalogo()
-            }
+            2 -> UIController.gestionarClientes()
+            3 -> reservationSystem.gestionarReservas()
+            4 -> MenuCatalog.mostrarCatalogo()
             5 -> orderManager.gestionarPedidos()
-            6 -> println(" 6. --- Módulo de Facturación")
+            6 -> BillingService.procesarFacturaMesa(orderManager, tableManager)
             0 -> println(" Saliendo del sistema... ¡Gracias por usar la aplicación!")
             else -> println(" Opción no válida. Por favor ingrese un número entre 0 y 6.")
         }
