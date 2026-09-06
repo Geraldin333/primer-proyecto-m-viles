@@ -21,12 +21,14 @@ object CustomerRegistry {
         return listaClientes.find { it.id == id }
     }
 
-    // Devuelve TODAS las coincidencias por nombre en lugar de solo una
+    fun findCustomerByName(nombre: String): CustomerData? {
+        return listaClientes.find { it.nombre.contains(nombre, ignoreCase = true) }
+    }
+
     fun findCustomersByName(nombre: String): List<CustomerData> {
         return listaClientes.filter { it.nombre.contains(nombre, ignoreCase = true) }
     }
 
-    // Validaciones de unicitad
     fun existsByPhone(telefono: String, ignoreId: Int? = null): Boolean {
         return listaClientes.any { it.telefono == telefono && it.id != ignoreId }
     }

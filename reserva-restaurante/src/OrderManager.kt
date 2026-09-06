@@ -1,64 +1,35 @@
-data class Producto(
-    val id: Int,
-    val nombre: String,
-    val precio: Double
-)
-
-data class Pedido(
-    val idPedido: Int,
-    val numeroMesa: Int,
-    val items: MutableList<Producto> = mutableListOf()
+data class PedidoItem(
+    val item: MenuItem,
+    var cantidad: Int
 ) {
-    fun subtotal(): Double = items.sumOf { it.precio }
+    fun subtotal(): Double = item.precio * cantidad
 }
 
-class OrderManager {
+class OrderManager(private val tableManager: TableManager) {
 
-    private val pedidos = mutableListOf<Pedido>()
-    private var contadorPedidos = 1
+    private val pedidosPorMesa = mutableMapOf<Int, MutableList<PedidoItem>>()
 
-    fun obtenerPedidoPorMesa(numeroMesa: Int): List<Pedido> {
-        return pedidos.filter { it.numeroMesa == numeroMesa }
-    }
-
-    fun tienePedidosPendientes(numeroMesa: Int): Boolean {
-        return obtenerPedidoPorMesa(numeroMesa).isNotEmpty()
-    }
-
-    fun agregarPedido(numeroMesa: Int, productos: List<Producto>) {
-        val nuevoPedido = Pedido(
-            idPedido = contadorPedidos++,
-            numeroMesa = numeroMesa,
-            items = productos.toMutableList()
-        )
-        pedidos.add(nuevoPedido)
-    }
-
-    fun limpiarPedidosMesa(numeroMesa: Int) {
-        pedidos.removeAll { it.numeroMesa == numeroMesa }
-    }
-
-    fun gestionarPedidos(tableManager: TableManager) {
+    fun gestionarPedidos() {
         var opcion: Int
 
         do {
             println("\n---------------------------------------------")
-            println(" MÓDULO DE GESTIÓN DE PEDIDOS")
+            println(" MÓDULO DE GESTIÓN DE PEDIDOS ")
             println("---------------------------------------------")
-            println("1. Tomar / Agregar nuevo pedido")
-            println("2. Ver consumos de una mesa")
-            println("3. Modificar pedido de una mesa")
-            println("4. Quitar / Eliminar producto de un pedido")
+            println("1. Agregar producto a una mesa")
+            println("2. Quitar producto de una mesa")
+            println("3. Modificar cantidad de un producto")
+            println("4. Ver pedido actual de una mesa")
             println("0. Volver al menú principal")
             println("---------------------------------------------")
 
             opcion = UIController.leerEntero("Ingrese la opción deseada (0-4): ")
 
             when (opcion) {
-                1 -> tomarPedido(tableManager)
-                2 -> verPedidosMesa()
-                3 -> modificarPedido(tableManager)
-                4 -> quitarProductoPedido()
+                1 -> agregarProducto()
+                2 -> quitarProducto()
+                3 -> modificarCantidad()
+                4 -> verPedidoMesa()
                 0 -> println(" Regresando al menú principal...")
                 else -> println(" Opción no válida. Ingrese un número entre 0 y 4.")
             }
@@ -66,133 +37,158 @@ class OrderManager {
         } while (opcion != 0)
     }
 
-    private fun tomarPedido(tableManager: TableManager) {
-        println("\n--- TOMAR NUEVO PEDIDO ---")
+    private fun obtenerMesaActiva(): Int? {
         val numeroMesa = UIController.leerEntero("Ingrese el número de mesa: ")
-
         val mesa = tableManager.buscarMesa(numeroMesa)
+
         if (mesa == null) {
-            println(" Error: No existe la mesa $numeroMesa.")
-            return
+            println(" Error: La mesa $numeroMesa no existe.")
+            return null
         }
 
         if (!mesa.estado.equals("Ocupada", ignoreCase = true)) {
-            println(" Error: La mesa $numeroMesa debe estar en estado 'Ocupada' para tomar un pedido.")
+            println(" Error: La mesa $numeroMesa está en estado '${mesa.estado}'. Solo se pueden gestionar pedidos en mesas activas ('Ocupada').")
+            return null
+        }
+
+        return numeroMesa
+    }
+
+    private fun agregarProducto() {
+        println("\n--- AGREGAR PRODUCTO A MESA ---")
+        val numMesa = obtenerMesaActiva() ?: return
+
+        val disponibles = MenuCatalog.obtenerDisponibles()
+        if (disponibles.isEmpty()) {
+            println(" No hay productos disponibles en el menú actualmente.")
             return
         }
 
-        MenuCatalog.mostrarCatalogo()
+        println("\nProductos disponibles:")
+        disponibles.forEach {
+            println("[ID: ${it.id}] ${it.nombre} - $${"%,.0f".format(it.precio)}")
+        }
 
-        val productosSeleccionados = mutableListOf<Producto>()
+        val idProducto = UIController.leerEntero("\nIngrese el ID del producto a agregar: ")
+        val producto = MenuCatalog.buscarPorId(idProducto)
 
-        do {
-            val idProducto = UIController.leerEntero("Ingrese el ID del producto a agregar (o 0 para terminar): ")
+        if (producto == null || !producto.disponible) {
+            println(" Error: Producto no encontrado o agotado.")
+            return
+        }
 
-            if (idProducto != 0) {
-                // Se busca usando buscarPorId de MenuCatalog
-                val menuItem = MenuCatalog.buscarPorId(idProducto)
-                if (menuItem != null) {
-                    if (menuItem.disponible) {
-                        // Mapeo de MenuItem a Producto para OrderManager
-                        val producto = Producto(
-                            id = menuItem.id,
-                            nombre = menuItem.nombre,
-                            precio = menuItem.precio
-                        )
-                        productosSeleccionados.add(producto)
-                        println(" ¡${menuItem.nombre} registrado con éxito!")
-                    } else {
-                        println(" El producto '${menuItem.nombre}' no está disponible actualmente.")
-                    }
-                } else {
-                    println(" Error: No existe un producto con el ID $idProducto en el catálogo.")
-                }
-            }
-        } while (idProducto != 0)
+        val cantidad = UIController.leerEntero("Ingrese la cantidad: ")
+        if (cantidad <= 0) {
+            println(" Error: La cantidad debe ser mayor a 0.")
+            return
+        }
 
-        if (productosSeleccionados.isNotEmpty()) {
-            agregarPedido(numeroMesa, productosSeleccionados)
-            println("\n ¡Pedido registrado exitosamente para la Mesa $numeroMesa!")
+        val listaPedidos = pedidosPorMesa.getOrPut(numMesa) { mutableListOf() }
+        val itemExistente = listaPedidos.find { it.item.id == idProducto }
+
+        if (itemExistente != null) {
+            itemExistente.cantidad += cantidad
         } else {
-            println(" No se agregaron productos al pedido.")
+            listaPedidos.add(PedidoItem(producto, cantidad))
+        }
+
+        println(" ¡Producto '${producto.nombre}' (x$cantidad) agregado a la mesa $numMesa exitosamente!")
+    }
+
+    private fun quitarProducto() {
+        println("\n--- QUITAR PRODUCTO DE MESA ---")
+        val numMesa = obtenerMesaActiva() ?: return
+
+        val listaPedidos = pedidosPorMesa[numMesa]
+        if (listaPedidos.isNullOrEmpty()) {
+            println(" La mesa $numMesa no tiene productos en su pedido.")
+            return
+        }
+
+        mostrarDetallePedido(numMesa, listaPedidos)
+        val idProducto = UIController.leerEntero("Ingrese el ID del producto que desea quitar: ")
+
+        val eliminado = listaPedidos.removeIf { it.item.id == idProducto }
+        if (eliminado) {
+            println(" Producto eliminado del pedido de la mesa $numMesa.")
+            if (listaPedidos.isEmpty()) {
+                pedidosPorMesa.remove(numMesa)
+            }
+        } else {
+            println(" Error: El producto con ID $idProducto no se encuentra en el pedido de esta mesa.")
         }
     }
 
-    private fun verPedidosMesa() {
-        println("\n--- CONSULTAR CONSUMOS DE MESA ---")
-        val numeroMesa = UIController.leerEntero("Ingrese el número de mesa: ")
+    private fun modificarCantidad() {
+        println("\n--- MODIFICAR CANTIDAD DE PRODUCTO ---")
+        val numMesa = obtenerMesaActiva() ?: return
 
-        val listaPedidos = obtenerPedidoPorMesa(numeroMesa)
-        if (listaPedidos.isEmpty()) {
-            println(" La mesa $numeroMesa no tiene pedidos registrados.")
+        val listaPedidos = pedidosPorMesa[numMesa]
+        if (listaPedidos.isNullOrEmpty()) {
+            println(" La mesa $numMesa no tiene productos en su pedido.")
             return
         }
 
-        println("\n--- CONSUMOS DE LA MESA $numeroMesa ---")
-        listaPedidos.forEach { pedido ->
-            println("Pedido #${pedido.idPedido}:")
-            pedido.items.forEachIndexed { index, item ->
-                println("  [${index + 1}] ${item.nombre} : $${"%.2f".format(item.precio)}")
-            }
+        mostrarDetallePedido(numMesa, listaPedidos)
+        val idProducto = UIController.leerEntero("Ingrese el ID del producto a modificar: ")
+        val item = listaPedidos.find { it.item.id == idProducto }
+
+        if (item == null) {
+            println(" Error: Producto no encontrado en el pedido de esta mesa.")
+            return
         }
-        val totalMesa = listaPedidos.sumOf { it.subtotal() }
+
+        val nuevaCantidad = UIController.leerEntero("Ingrese la nueva cantidad (0 para eliminar): ")
+        if (nuevaCantidad <= 0) {
+            listaPedidos.remove(item)
+            println(" Producto eliminado del pedido.")
+            if (listaPedidos.isEmpty()) {
+                pedidosPorMesa.remove(numMesa)
+            }
+        } else {
+            item.cantidad = nuevaCantidad
+            println(" Cantidad actualizada a $nuevaCantidad para '${item.item.nombre}'.")
+        }
+    }
+
+    private fun verPedidoMesa() {
+        println("\n--- DETALLE DE PEDIDO MESA ---")
+        val numMesa = UIController.leerEntero("Ingrese el número de mesa: ")
+        val listaPedidos = pedidosPorMesa[numMesa]
+
+        if (listaPedidos.isNullOrEmpty()) {
+            println(" La mesa $numMesa no tiene consumos registrados.")
+        } else {
+            mostrarDetallePedido(numMesa, listaPedidos)
+        }
+    }
+
+    private fun mostrarDetallePedido(numMesa: Int, lista: List<PedidoItem>) {
+        println("\n=============================================")
+        println(" DETALLE DE CONSUMO - MESA $numMesa")
+        println("=============================================")
+        var total = 0.0
+        lista.forEach {
+            val sub = it.subtotal()
+            total += sub
+            println("• [ID: ${it.item.id}] ${it.item.nombre} x${it.cantidad} - Subtotal: $${"%,.0f".format(sub)}")
+        }
         println("---------------------------------------------")
-        println("Subtotal acumulado: $${"%.2f".format(totalMesa)}")
+        println(" TOTAL ACUMULADO: $${"%,.0f".format(total)}")
+        println("=============================================\n")
     }
 
-    private fun modificarPedido(tableManager: TableManager) {
-        println("\n--- MODIFICAR PEDIDO DE UNA MESA ---")
-        val numeroMesa = UIController.leerEntero("Ingrese el número de mesa a modificar: ")
-
-        val listaPedidos = obtenerPedidoPorMesa(numeroMesa)
-        if (listaPedidos.isEmpty()) {
-            println(" La mesa $numeroMesa no tiene pedidos activos para modificar.")
-            return
-        }
-
-        println("\nAgregando ítems adicionales a la Mesa $numeroMesa:")
-        tomarPedido(tableManager)
+    // Métodos de integración con TableManager y BillingService
+    fun obtenerPedidoPorMesa(numeroMesa: Int): List<PedidoItem> {
+        return pedidosPorMesa[numeroMesa] ?: emptyList()
     }
 
-    private fun quitarProductoPedido() {
-        println("\n--- QUITAR PRODUCTO DE UN PEDIDO ---")
-        val numeroMesa = UIController.leerEntero("Ingrese el número de mesa: ")
+    fun tienePedidosPendientes(numeroMesa: Int): Boolean {
+        val lista = pedidosPorMesa[numeroMesa]
+        return !lista.isNullOrEmpty()
+    }
 
-        val listaPedidos = obtenerPedidoPorMesa(numeroMesa)
-        if (listaPedidos.isEmpty()) {
-            println(" La mesa $numeroMesa no tiene pedidos registrados.")
-            return
-        }
-
-        println("\nPedidos de la Mesa $numeroMesa:")
-        listaPedidos.forEach { pedido ->
-            println("Pedido ID: ${pedido.idPedido}")
-            pedido.items.forEachIndexed { index, item ->
-                println("  [${index + 1}] ${item.nombre} - $${"%.2f".format(item.precio)}")
-            }
-        }
-
-        val idPedidoElegido = UIController.leerEntero("\nIngrese el ID del Pedido del cual desea eliminar un producto (0 para cancelar): ")
-        if (idPedidoElegido == 0) return
-
-        val pedidoTarget = listaPedidos.find { it.idPedido == idPedidoElegido }
-        if (pedidoTarget == null || pedidoTarget.items.isEmpty()) {
-            println(" Error: No se encontró un pedido con el ID $idPedidoElegido o no tiene productos.")
-            return
-        }
-
-        val posicion = UIController.leerEntero("Ingrese el número de ítem a eliminar (1 - ${pedidoTarget.items.size}): ") - 1
-
-        if (posicion in 0 until pedidoTarget.items.size) {
-            val productoEliminado = pedidoTarget.items.removeAt(posicion)
-            println(" ¡Se eliminó '${productoEliminado.nombre}' del pedido con éxito!")
-
-            if (pedidoTarget.items.isEmpty()) {
-                pedidos.remove(pedidoTarget)
-                println(" El pedido #${pedidoTarget.idPedido} quedó vacío y fue removido.")
-            }
-        } else {
-            println(" Error: Posición de producto inválida.")
-        }
+    fun limpiarPedidosMesa(numeroMesa: Int) {
+        pedidosPorMesa.remove(numeroMesa)
     }
 }

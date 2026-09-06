@@ -1,6 +1,6 @@
 fun main() {
     val tableManager = TableManager()
-    val orderManager = OrderManager()
+    val orderManager = OrderManager(tableManager)
     val reservationSystem = ReservationSystem(tableManager)
 
     var opcion: Int
@@ -16,7 +16,7 @@ fun main() {
             2 -> UIController.gestionarClientes()
             3 -> reservationSystem.gestionarReservas()
             4 -> MenuCatalog.mostrarCatalogo()
-            5 -> orderManager.gestionarPedidos(tableManager)
+            5 -> orderManager.gestionarPedidos()
             6 -> BillingService.procesarFacturaMesa(orderManager, tableManager)
             0 -> println(" Saliendo del sistema... ¡Gracias por usar la aplicación!")
             else -> println(" Opción no válida. Por favor ingrese un número entre 0 y 6.")
