@@ -26,9 +26,11 @@ object BillingService {
         val subtotal = pedidos.sumOf { it.subtotal() }
         generarFactura(subtotal)
 
-        // Liberar la mesa tras el cobro
+        // Limpiar comanda/pedidos de la mesa y liberarla
+        orderManager.limpiarPedidosMesa(numeroMesa)
         mesa.estado = "Disponible"
-        println(" ¡Cobro registrado con éxito! La mesa $numeroMesa ahora está 'Disponible'.")
+
+        println(" ¡Cobro registrado con éxito! La mesa $numeroMesa ha saldado su cuenta y ahora está 'Disponible'.")
     }
 
     fun generarFactura(subtotal: Double) {

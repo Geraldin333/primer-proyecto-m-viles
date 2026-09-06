@@ -1,13 +1,15 @@
+import java.time.LocalDateTime
+
 data class Mesa(
         val numero: Int,
         val capacidad: Int,
         var estado: String
 ) {
-        fun mostrarDetalle() {
+        fun mostrarDetalle(estadoCalculado: String = estado) {
                 println("---------------------------------------------")
                 println("Mesa: $numero")
                 println("Capacidad: $capacidad personas")
-                println("Estado: $estado")
+                println("Estado: $estadoCalculado")
                 println("---------------------------------------------")
         }
 }
@@ -31,7 +33,31 @@ class TableManager {
                 return mesas.find { it.numero == numero }
         }
 
-        fun gestionarMesas() {
+        fun obtenerEstadoMesa(numeroMesa: Int, reservationSystem: ReservationSystem): String {
+                val mesa = buscarMesa(numeroMesa) ?: return "Disponible"
+
+                if (mesa.estado.equals("Ocupada", ignoreCase = true)) {
+                        return "Ocupada"
+                }
+
+                val reserva = reservationSystem.obtenerReservaActiva(numeroMesa) ?: return mesa.estado
+
+                val ahora = LocalDateTime.now()
+                val inicioReserva = LocalDateTime.of(reserva.fecha, reserva.hora)
+                val finReserva = inicioReserva.plusHours(2)
+                val margenPrevisivo = inicioReserva.minusMinutes(30)
+
+                val enMargenPrevio = (!ahora.isBefore(margenPrevisivo)) && ahora.isBefore(inicioReserva)
+                val enHorasDeConsumo = (!ahora.isBefore(inicioReserva)) && ahora.isBefore(finReserva)
+
+                return when {
+                        enMargenPrevio -> "Reservada"
+                        enHorasDeConsumo -> "Ocupada"
+                        else -> mesa.estado
+                }
+        }
+
+        fun gestionarMesas(reservationSystem: ReservationSystem, orderManager: OrderManager) {
                 var opcion: Int
 
                 do {
@@ -51,11 +77,11 @@ class TableManager {
                         opcion = UIController.leerEntero("Ingrese la opción deseada (0-7): ")
 
                         when (opcion) {
-                                1 -> mostrarMesas()
-                                2 -> consultarMesa()
+                                1 -> mostrarMesas(reservationSystem)
+                                2 -> consultarMesa(reservationSystem)
                                 3 -> buscarMesaPorCapacidad()
                                 4 -> sentarClienteSinReserva()
-                                5 -> cambiarEstadoMesa()
+                                5 -> cambiarEstadoMesa(orderManager)
                                 6 -> agregarMesa()
                                 7 -> eliminarMesa()
                                 0 -> println(" Regresando al menú principal...")
@@ -65,12 +91,15 @@ class TableManager {
                 } while (opcion != 0)
         }
 
-        private fun mostrarMesas() {
+        private fun mostrarMesas(reservationSystem: ReservationSystem) {
                 println("\n--- ESTADO DE LAS MESAS ---")
-                mesas.forEach { it.mostrarDetalle() }
+                mesas.forEach { mesa ->
+                        val estadoDinamico = obtenerEstadoMesa(mesa.numero, reservationSystem)
+                        mesa.mostrarDetalle(estadoDinamico)
+                }
         }
 
-        private fun consultarMesa() {
+        private fun consultarMesa(reservationSystem: ReservationSystem) {
                 println("\n--- CONSULTAR MESA ---")
                 val numeroMesa = UIController.leerEntero("Ingrese el número de mesa: ")
                 val mesa = buscarMesa(numeroMesa)
@@ -78,7 +107,8 @@ class TableManager {
                 if (mesa == null) {
                         println(" Error: No existe una mesa con el número $numeroMesa.")
                 } else {
-                        mesa.mostrarDetalle()
+                        val estadoDinamico = obtenerEstadoMesa(numeroMesa, reservationSystem)
+                        mesa.mostrarDetalle(estadoDinamico)
                 }
         }
 
@@ -121,6 +151,26 @@ class TableManager {
 
         private fun sentarClienteSinReserva() {
                 println("\n--- SENTAR CLIENTE SIN RESERVA (WALK-IN) ---")
+
+                // 1. Validar y seleccionar cliente antes de asignar la mesa
+                var clienteExistente: CustomerData? = null
+
+                while (clienteExistente == null) {
+                        val idCliente = UIController.leerEntero("Ingrese el ID del cliente registrado (o 0 para cancelar y volver): ")
+
+                        if (idCliente == 0) {
+                                println(" Operación cancelada. Regresando al menú de mesas...")
+                                return
+                        }
+
+                        clienteExistente = CustomerRegistry.getCustomers().find { it.id == idCliente }
+
+                        if (clienteExistente == null) {
+                                println(" Error: No existe ningún cliente registrado con el ID $idCliente. Intente nuevamente.")
+                        }
+                }
+
+                // 2. Pedir número de comensales
                 val numPersonas = UIController.leerEntero("Ingrese la cantidad de personas: ")
 
                 if (numPersonas <= 0) {
@@ -128,6 +178,7 @@ class TableManager {
                         return
                 }
 
+                // 3. Filtrar mesas
                 val disponibles = mesas.filter { it.estado.equals("Disponible", ignoreCase = true) && it.capacidad >= numPersonas }
 
                 if (disponibles.isEmpty()) {
@@ -143,21 +194,28 @@ class TableManager {
                         disponibles.filter { it.capacidad == menorCapacidad }
                 }
 
-                println("\nMesas recomendadas para la cantidad solicitada:")
+                println("\nMesas recomendadas para $numPersonas personas:")
                 mejoresMesas.forEach { println("• Mesa #${it.numero} (Capacidad: ${it.capacidad} personas)") }
 
-                val numMesaElegida = UIController.leerEntero("\nIngrese el número de mesa a asignar: ")
+                // 4. Asignar la mesa elegida
+                val numMesaElegida = UIController.leerEntero("\nIngrese el número de mesa a asignar (o 0 para cancelar): ")
+
+                if (numMesaElegida == 0) {
+                        println(" Operación cancelada. Regresando al menú de mesas...")
+                        return
+                }
+
                 val mesaElegida = mejoresMesas.find { it.numero == numMesaElegida }
 
                 if (mesaElegida == null) {
                         println(" Error: La mesa elegida no está en la lista de recomendadas.")
                 } else {
                         mesaElegida.estado = "Ocupada"
-                        println(" ¡Mesa $numMesaElegida asignada y cambiada a estado 'Ocupada' con éxito!")
+                        println("\n ¡Mesa $numMesaElegida asignada a ${clienteExistente.nombre} (ID: ${clienteExistente.id}) y cambiada a 'Ocupada' con éxito!")
                 }
         }
 
-        private fun cambiarEstadoMesa() {
+        private fun cambiarEstadoMesa(orderManager: OrderManager) {
                 println("\n--- CAMBIAR ESTADO DE MESA ---")
                 val numeroMesa = UIController.leerEntero("Ingrese el número de mesa: ")
                 val mesa = buscarMesa(numeroMesa)
@@ -176,8 +234,14 @@ class TableManager {
 
                 when (opcionEstado) {
                         1 -> {
-                                mesa.estado = "Disponible"
-                                println(" La mesa $numeroMesa ahora está disponible.")
+                                // Bloqueo Opción A: No permite 'Disponible' si hay cuenta/pedido activo
+                                if (orderManager.tienePedidosPendientes(numeroMesa)) {
+                                        println("\n Error: No se puede cambiar la mesa $numeroMesa a 'Disponible' porque tiene un pedido pendiente de cobro.")
+                                        println(" Por favor, procese la factura en el Módulo de Facturación (BillingService) para liberar la mesa.")
+                                } else {
+                                        mesa.estado = "Disponible"
+                                        println(" La mesa $numeroMesa ahora está disponible.")
+                                }
                         }
                         2 -> {
                                 mesa.estado = "Ocupada"

@@ -1,4 +1,5 @@
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -31,6 +32,24 @@ class ReservationSystem(
     private val formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     private val formatoHora = DateTimeFormatter.ofPattern("HH:mm")
 
+    // EVALUACIÓN CON FECHA Y HORA REAL
+    fun obtenerReservaActiva(numeroMesa: Int): Reserva? {
+        val ahora = LocalDateTime.now()
+
+        return reservas.find { reserva ->
+            if (reserva.numeroMesa == numeroMesa) {
+                val inicioReserva = LocalDateTime.of(reserva.fecha, reserva.hora)
+                val finReserva = inicioReserva.plusHours(2)
+                val margenPrevisivo = inicioReserva.minusMinutes(30)
+
+                // Verifica si la fecha/hora actual cae en el rango (Margen previo + 2h de consumo)
+                (!ahora.isBefore(margenPrevisivo)) && ahora.isBefore(finReserva)
+            } else {
+                false
+            }
+        }
+    }
+
     fun gestionarReservas() {
         var opcion: Int
 
@@ -62,7 +81,6 @@ class ReservationSystem(
     private fun crearReserva() {
         println("\n--- REGISTRAR NUEVA RESERVA ---")
 
-        // 1. Pedir ID del cliente con opción de salida (0)
         var clienteExistente: CustomerData? = null
 
         while (clienteExistente == null) {
@@ -80,7 +98,6 @@ class ReservationSystem(
             }
         }
 
-        // 2. Pedir Fecha (Hoy o Futura)
         var fecha: LocalDate? = null
         val hoy = LocalDate.now()
 
@@ -105,7 +122,6 @@ class ReservationSystem(
             }
         }
 
-        // 3. Pedir Hora
         var hora: LocalTime? = null
 
         while (hora == null) {
@@ -124,7 +140,6 @@ class ReservationSystem(
             }
         }
 
-        // 4. Pedir comensales y mostrar mesas disponibles
         var numPersonas = 0
         while (numPersonas <= 0) {
             numPersonas = UIController.leerEntero("Ingrese la cantidad de personas (o 0 para cancelar): ")
@@ -141,10 +156,23 @@ class ReservationSystem(
         var mesaValida = false
 
         while (!mesaValida) {
+            val duracionHoras = 2L
             val mesasCandidatas = (1..10).mapNotNull { tableManager.buscarMesa(it) }
                 .filter { mesa ->
                     mesa.capacidad >= numPersonas &&
-                            reservas.none { it.numeroMesa == mesa.numero && it.fecha == fecha && it.hora == hora }
+                            reservas.none { reserva ->
+                                if (reserva.numeroMesa == mesa.numero) {
+                                    val inicioExistente = LocalDateTime.of(reserva.fecha, reserva.hora)
+                                    val finExistente = inicioExistente.plusHours(duracionHoras)
+
+                                    val inicioNueva = LocalDateTime.of(fecha, hora)
+                                    val finNueva = inicioNueva.plusHours(duracionHoras)
+
+                                    inicioNueva.isBefore(finExistente) && finNueva.isAfter(inicioExistente)
+                                } else {
+                                    false
+                                }
+                            }
                 }
 
             if (mesasCandidatas.isEmpty()) {
@@ -173,7 +201,6 @@ class ReservationSystem(
 
             mesaValida = true
 
-            // Registrar reserva
             val nuevaReserva = Reserva(
                 idCliente = clienteExistente.id,
                 numeroMesa = numeroMesa,

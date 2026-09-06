@@ -5,7 +5,6 @@ fun main() {
 
     var opcion: Int
 
-
     println(" BIENVENIDO AL SISTEMA DE RESERVAS DE RESTAURANTE ")
 
     do {
@@ -13,7 +12,7 @@ fun main() {
         opcion = UIController.leerEntero("Ingrese la opción deseada (0-6): ")
 
         when (opcion) {
-            1 -> tableManager.gestionarMesas()
+            1 -> tableManager.gestionarMesas(reservationSystem)
             2 -> UIController.gestionarClientes()
             3 -> reservationSystem.gestionarReservas()
             4 -> MenuCatalog.mostrarCatalogo()
